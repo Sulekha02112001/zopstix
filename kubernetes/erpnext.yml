@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: erpnext
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erpnext-ingress
+  namespace: erpnext
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+
+spec:
+  rules:
+    - host: erp.zopstix.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: erpnext-svc
+                port:
+                  number: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erpnext-svc
+  namespace: erpnext
+  labels:
+    app: erpnext
+spec:
+  ports:
+    - port: 8000
+      name: erpport
+      targetPort: 8000
+      protocol: TCP
+    - port: 9000
+      name: nextport
+      targetPort: 8000
+  selector:
+    app: erpnext
+    tier: frontend
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: erpnext-dep
+  namespace: erpnext
+  labels:
+    app: erppnext
+spec:
+  selector:
+    matchLabels:
+      app: erpnext
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: erpnext
+        tier: frontend
+    spec:
+      containers:
+        - image: pipech/erpnext-docker-debian:mas-py2-latest
+          name: erpnext
+          ports:
+            - containerPort: 8000
+              name: erpport
+            - containerPort: 9000
+              name: nextport

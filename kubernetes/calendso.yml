@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cal
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: calendso-ingress
+  namespace: cal
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+
+spec:
+  rules:
+    - host: calendar.zopstix.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: calendso-svc
+                port:
+                  number: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calendso-svc
+  namespace: cal
+  labels:
+    app: calendso
+spec:
+  ports:
+    - port: 3000
+      name: calport
+      targetPort: 3000
+      protocol: TCP
+  selector:
+    app: calendso
+    tier: frontend
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calendso-dep
+  namespace: cal
+  labels:
+    app: erppnext
+spec:
+  selector:
+    matchLabels:
+      app: calendso
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: calendso
+        tier: frontend
+    spec:
+      containers:
+        - image: ctadeu/calendso:0.0.17-1
+          name: calendso
+          ports:
+            - containerPort: 3000
+              name: calport

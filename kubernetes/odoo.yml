@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo-postgres
+  labels:
+    app: odoo
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: odoo
+    tier: postgres
+  clusterIP: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odoo-postgres
+  labels:
+    app: odoo
+spec:
+  selector:
+    matchLabels:
+      app: odoo
+      tier: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: odoo
+        tier: postgres
+    spec:
+      containers:
+        - image: postgres:13
+          name: postgres
+          env:
+            - name: POSTGRES_USER
+              value: odoo
+            - name: POSTGRES_PASSWORD
+              value: odoo
+            - name: POSTGRES_DB
+              value: postgres
+          ports:
+            - containerPort: 5432
+              name: mysql
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo
+  labels:
+    app: odoo
+spec:
+  ports:
+    - port: 8069
+      targetPort: 8069
+      #      nodePort: 32000
+  selector:
+    app: odoo
+    tier: frontend
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: odoo
+  labels:
+    app: odoo
+spec:
+  selector:
+    matchLabels:
+      app: odoo
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: odoo
+        tier: frontend
+    spec:
+      containers:
+        - image: odoo:14.0
+          name: odoo
+          env:
+            - name: HOST
+              value: odoo-postgres
+            - name: USER
+              value: odoo
+            - name: PASSWORD
+              value: odoo
+          ports:
+            - containerPort: 8069
+              name: odoo
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odoo-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+
+spec:
+  rules:
+    - host: odoo.zopstix.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo
+                port:
+                  number: 8069
